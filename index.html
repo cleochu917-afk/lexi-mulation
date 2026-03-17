@@ -4027,12 +4027,10 @@ async function generate() {
   document.getElementById('results-placeholder').style.display = 'none';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
@@ -4528,9 +4526,9 @@ Output ONLY your reply. No name prefix, no labels, no quotes.`;
 
 async function naturaliseOpeningMessage(topic, partner) {
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514', max_tokens: 80,
         messages: [{ role: 'user', content: 'Rephrase this as a single natural first text message to ' + partner + '.\nTopic: "' + topic + '"\nRules: casual, 1 sentence, sounds like a real person starting conversation. Output ONLY the message.' }]
@@ -4718,12 +4716,10 @@ async function getChatReply(entryId) {
     const systemPrompt = buildPartnerPrompt(chatState.partner, chatState.tone, chatState.emojiLevel, chatState.remainingVocab);
     const expectedWord = chatState.remainingVocab.length > 0 ? chatState.remainingVocab[0] : null;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
@@ -4787,9 +4783,9 @@ async function fetchSingleWordExplanation(entryId, word) {
   // Fetch explanation for one word and immediately inject data-exp into its strong tag
   try {
     const partner = chatState ? chatState.partner : 'the author';
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 120,
@@ -4856,9 +4852,9 @@ async function requestChatExplanations(entryId) {
   const vocabList = vocab.map(w => '"' + w + '"').join(', ');
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514', max_tokens: 600,
         messages: [{ role: 'user', content: 'For each word: ' + vocabList + '\nWrite one line in the voice of ' + partner + ' explaining why they used it.\nFormat: [word]: persona_explanation: "explanation with <u>core meaning</u> underlined"\nOutput ONLY the lines.' }]
@@ -6439,7 +6435,7 @@ async function explorerFetchAllSamples(){
   const list=all.map((it,i)=>(i+1)+'. '+(it.tag==='composition'?'Composition: ':'Rhythm: ')+it.name).join('\n');
   const prompt='Theme: "'+EX.theme+'"\n\nFor each of the 17 styles, write ONE sentence (10-18 words) expressing this theme.\n\n'+list+'\n\nOutput ONLY:\n1. [sentence]\n...17. [sentence]';
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     data.content.map(b=>b.text||'').join('').split('\n').filter(l=>/^\d+\./.test(l.trim())).forEach(line=>{
       const m=line.match(/^(\d+)\.\s+(.+)$/);if(!m)return;
@@ -6463,7 +6459,7 @@ async function explorerGenerate(){
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
   const prompt='Write a single paragraph (80-130 words) for theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\n\n'+(vi?vi+'\n\n':'')+'Both must be present. No title. Output ONLY the paragraph.';
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();let out=data.content.map(b=>b.text||'').join('').trim();
     out=out.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
@@ -6555,7 +6551,7 @@ async function fetchExplorerWordExplanation(word,anchorEl){
     const outEl=document.getElementById('explorer-out-text'),ot=outEl?(outEl.innerText||outEl.textContent):'';
     const sents=ot.split(/(?<=[.!?])\s+/),ctx=sents.find(s=>s.toLowerCase().includes(word.toLowerCase()))||ot.slice(0,150);
     const prompt='You are a '+comp+(rhy?' / '+rhy:'')+' writer. In your voice, ONE sentence explaining why you chose "'+word+'" in:\n\n"'+ctx.trim()+'"\n\nWrap dictionary meaning in <u>...</u>.\nOutput ONLY the sentence.';
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();const exp=data.content.map(b=>b.text||'').join('').trim();
     const safe=exp.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/&lt;u&gt;/g,'<u>').replace(/&lt;\/u&gt;/g,'</u>');
     const tel=bubble.querySelector('.word-bubble-text');if(tel){tel.innerHTML=safe;tel.style.opacity='';tel.style.fontStyle='italic';tel.style.fontSize='';}
