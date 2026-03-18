@@ -168,21 +168,13 @@
   .panel-body-inner { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 
   /* ─── VOICE CAPTURE ─── */
-  .voice-section {
     background: var(--slate);
     border: 1px solid var(--border-dark);
     border-radius: 4px;
     padding: 1rem;
   }
-  .voice-title {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--slate-light);
-    margin-bottom: 0.75rem;
-  }
-  .voice-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+
   .record-btn {
     display: flex;
     align-items: center;
@@ -207,8 +199,6 @@
   .rec-dot { width: 8px; height: 8px; background: #ff6b6b; border-radius: 50%; }
   .record-btn.recording .rec-dot { background: white; }
   .record-timer { font-family: var(--font-mono); font-size: 0.75rem; color: var(--slate-light); }
-  audio { width: 100%; margin-top: 0.5rem; height: 32px; }
-  audio::-webkit-media-controls-panel { background: var(--slate-mid); }
 
   .style-select-wrapper { margin-top: 0.5rem; }
 
@@ -674,17 +664,6 @@
   .lyric-lines { font-family: var(--font-body); font-size: 0.95rem; line-height: 2; color: var(--warm-white); }
 
   /* Audio player */
-  .audio-synthesis-panel {
-    margin-top: 1rem;
-    padding: 0.75rem 1rem;
-    background: rgba(255,255,255,0.03);
-    border: 1px dashed var(--border-dark);
-    border-radius: 2px;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
   .synth-label {
     font-family: var(--font-mono);
     font-size: 0.65rem;
@@ -931,7 +910,6 @@
     overflow-y: auto;
     flex: 1;
   }
-  .modal-audio { margin-top: 1rem; }
   .modal-footer {
     padding: 1rem 1.5rem;
     border-top: 1px solid rgba(212,201,176,0.1);
@@ -1690,30 +1668,7 @@
     <!-- ── SIDEBAR ── -->
     <aside class="sidebar">
 
-      <!-- Voice Capture (rap + melodic only) -->
-      <div class="voice-section" id="voice-section" style="display:none;">
-        <div class="voice-title">🎙 Voice Sample</div>
-        <div class="voice-controls">
-          <button class="record-btn" id="record-btn" onclick="toggleRecording()">
-            <span class="rec-dot"></span>
-            <span id="record-label">Record</span>
-          </button>
-          <span class="record-timer" id="record-timer"></span>
-        </div>
-        <audio id="voice-preview" controls style="display:none;"></audio>
-        <div class="style-select-wrapper">
-          <label for="melody-style">Melodic Style Preset</label>
-          <select id="melody-style">
-            <option value="90s-rnb">90s R&B</option>
-            <option value="2000s-ballad">2000s Pop Ballad</option>
-            <option value="soul-gospel">Soul / Gospel</option>
-            <option value="funk-groove">Funk Groove</option>
-            <option value="indie-dream">Indie Dream Pop</option>
-            <option value="acoustic-folk">Acoustic Folk</option>
-            <option value="trap-melodic">Trap-Melodic Rap Flow</option>
-          </select>
-        </div>
-      </div>
+
 
       <!-- Vocab Input -->
       <div class="panel open" id="panel-vocab">
@@ -2100,12 +2055,6 @@
 // STATE
 // ═══════════════════════════════════════════
 let currentMode = 'lit';
-let mediaRecorder = null;
-let audioChunks = [];
-let voiceBlob = null;
-let recordTimer = null;
-let recordSeconds = 0;
-let isRecording = false;
 let currentModalId = null;
 
 // ═══════════════════════════════════════════
@@ -2142,8 +2091,7 @@ function switchMode(mode) {
     }
   });
   // Voice section only relevant for rap and melodic
-  const voiceSection = document.getElementById('voice-section');
-  voiceSection.style.display = (mode === 'rap' || mode === 'melodic') ? 'block' : 'none';
+
 }
 
 // ═══════════════════════════════════════════
@@ -2169,71 +2117,10 @@ function renderVocabChips() {
   ).join('');
 }
 
-// ═══════════════════════════════════════════
-// VOICE RECORDING
-// ═══════════════════════════════════════════
-async function toggleRecording() {
-  if (!isRecording) {
-    await startRecording();
-  } else {
-    stopRecording();
-  }
-}
 
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
 
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) audioChunks.push(e.data);
-    };
-    mediaRecorder.onstop = () => {
-      voiceBlob = new Blob(audioChunks, { type: 'audio/webm' });
-      const url = URL.createObjectURL(voiceBlob);
-      const preview = document.getElementById('voice-preview');
-      preview.src = url;
-      preview.style.display = 'block';
-      stream.getTracks().forEach(t => t.stop());
-    };
 
-    mediaRecorder.start();
-    isRecording = true;
 
-    const btn = document.getElementById('record-btn');
-    btn.classList.add('recording');
-    document.getElementById('record-label').textContent = 'Stop';
-
-    recordSeconds = 0;
-    recordTimer = setInterval(() => {
-      recordSeconds++;
-      document.getElementById('record-timer').textContent = formatTime(recordSeconds);
-      if (recordSeconds >= 15) stopRecording();
-    }, 1000);
-
-  } catch (err) {
-    showError('Microphone access denied: ' + err.message);
-  }
-}
-
-function stopRecording() {
-  if (mediaRecorder && isRecording) {
-    mediaRecorder.stop();
-    isRecording = false;
-    clearInterval(recordTimer);
-    const btn = document.getElementById('record-btn');
-    btn.classList.remove('recording');
-    document.getElementById('record-label').textContent = 'Re-record';
-    document.getElementById('record-timer').textContent = formatTime(recordSeconds) + ' ✓';
-  }
-}
-
-function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2,'0')}`;
-}
 
 // ═══════════════════════════════════════════
 // BUILD PROMPT
@@ -4122,7 +4009,6 @@ function deleteCapsule(event, capsuleId) {
 function renderResultFromEntry(entry) {
   const list = document.getElementById('results-list');
   const { id, rawText, vocab, mode, modeLabel, subtag } = entry;
-  const hasAudioModes = mode === 'rap' || mode === 'melodic';
   const div = document.createElement('div');
   div.className = 'result-card';
   div.id = 'rc-' + id;
@@ -4139,20 +4025,13 @@ function renderResultFromEntry(entry) {
       <span class="result-mode-badge">${modeLabel}</span>
       <div class="result-actions">
         <button class="copy-btn" id="copy-btn-${id}" onclick="copyResultById('${id}')">⧉ Copy</button>
-        ${hasAudioModes ? `<button class="action-btn" onclick="synthesizeAudio('rc-${id}')">♪ Synthesize Voice</button>` : ''}
         <button class="action-btn save-btn" id="save-btn-${id}" onclick="saveToDictById('rc-${id}')">☆ Save</button>
         <button class="delete-result-btn" onclick="deleteCurrentResult('${id}')">✕ Discard</button>
       </div>
     </div>
     <div class="result-body" id="body-${id}">
       ${contentHtml}
-      ${hasAudioModes ? `
-        <div class="audio-synthesis-panel" id="audio-panel-rc-${id}" style="display:none;">
-          <span class="synth-label">♪ Voice Synthesis Ready</span>
-          <audio controls style="flex:1;min-width:200px;"></audio>
-          <button class="synth-btn" onclick="downloadAudio('rc-${id}')">↓ Save Audio</button>
-        </div>
-      ` : ''}
+
     </div>
   `;
 
@@ -4940,102 +4819,6 @@ function getSubtag() {
   return '';
 }
 
-// ═══════════════════════════════════════════
-// AUDIO SYNTHESIS (PLACEHOLDER PIPELINE)
-// ═══════════════════════════════════════════
-function synthesizeAudio(resultId) {
-  const btn = event.target;
-  const style = document.getElementById('melody-style').value;
-
-  if (!voiceBlob) {
-    showToast('Please record a voice sample first!');
-    return;
-  }
-
-  btn.textContent = '⏳ Processing...';
-  btn.disabled = true;
-
-  // PLACEHOLDER: Simulate async voice synthesis pipeline
-  // In production, this would:
-  // 1. Send voiceBlob to voice embedding model
-  // 2. Send lyrics + style preset to pitch/rhythm mapping model
-  // 3. Run voice synthesis (Diffusion/TTS) with user's voiceprint
-  // 4. Return audio URL
-  simulateVoiceSynthesis(resultId, style).then(audioUrl => {
-    const panel = document.getElementById('audio-panel-' + resultId);
-    const audioEl = panel.querySelector('audio');
-    audioEl.src = audioUrl;
-    panel.style.display = 'flex';
-    btn.textContent = '♪ Re-synthesize';
-    btn.disabled = false;
-    showToast('Voice synthesis complete! (Simulated)');
-  }).catch(err => {
-    showToast('Synthesis error: ' + err.message);
-    btn.textContent = '♪ Synthesize Voice';
-    btn.disabled = false;
-  });
-}
-
-async function simulateVoiceSynthesis(resultId, stylePreset) {
-  // PLACEHOLDER: Simulate processing time
-  await new Promise(res => setTimeout(res, 2000));
-
-  // In production pipeline:
-  // Step 1: Extract vocal timbre from voiceBlob
-  // const timbreEmbedding = await extractVocalTimbre(voiceBlob);
-
-  // Step 2: Load style preset (original royalty-free melodic contour)
-  // const melodicContour = await loadMelodicPreset(stylePreset);
-
-  // Step 3: Map lyrics to melodic contour
-  // const lyricMelodyMap = await mapLyricsToMelody(lyricsText, melodicContour);
-
-  // Step 4: Synthesize with user's voice
-  // const synthesizedAudio = await synthesizeWithVoiceprint(timbreEmbedding, lyricMelodyMap);
-
-  // Step 5: Return blob URL
-  // return URL.createObjectURL(synthesizedAudio);
-
-  // For now, return the raw voice recording as placeholder
-  return URL.createObjectURL(voiceBlob);
-}
-
-async function extractVocalTimbre(audioBlob) {
-  // STUB: Send to voice embedding service
-  // Returns: { pitch_range, timbre_vector, rhythm_tendency }
-  const formData = new FormData();
-  formData.append('audio', audioBlob, 'voice.webm');
-  // const res = await fetch('/api/extract-timbre', { method: 'POST', body: formData });
-  // return await res.json();
-}
-
-async function loadMelodicPreset(preset) {
-  // STUB: Load original royalty-free melodic contour template
-  // Templates are NOT based on copyrighted music — all original compositions
-  // Returns: { tempo, key, scale, contour_points[], rhythm_pattern[] }
-  // return await fetch(`/api/presets/${preset}`).then(r => r.json());
-}
-
-async function mapLyricsToMelody(lyrics, melodicContour) {
-  // STUB: Claude-assisted syllable-to-note mapping
-  // Returns: { notes[], durations[], dynamics[] }
-}
-
-async function synthesizeWithVoiceprint(timbreEmbedding, lyricMelodyMap) {
-  // STUB: Diffusion/neural TTS synthesis
-  // Returns: Blob (audio/wav)
-}
-
-function downloadAudio(resultId) {
-  const panel = document.getElementById('audio-panel-' + resultId);
-  const audioEl = panel.querySelector('audio');
-  if (audioEl.src) {
-    const a = document.createElement('a');
-    a.href = audioEl.src;
-    a.download = `leximulation-synthesis-${resultId}.wav`;
-    a.click();
-  }
-}
 
 // ═══════════════════════════════════════════
 // SAVE TO DICTIONARY
