@@ -6237,12 +6237,17 @@ async function explorerGenerate(){
   const sb=document.getElementById('tx-save-btn');if(sb){sb.textContent='☆ Save to Dictionary';sb.classList.remove('saved');}
   const vRaw=(document.getElementById('explorer-vocab').value||'').trim();
   const vocab=vRaw?vRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
-  const vi=vocab.length?'Integrate these vocabulary words naturally (bold each with <strong>word</strong> HTML tags): '+vocab.map(w=>'"'+w+'"').join(', ')+'.':'';
+  const minWords = vocab.length > 0 ? Math.max(120, 80 + vocab.length * 25) : 100;
+  const maxWords = minWords + 60;
+  const vi=vocab.length
+    ? 'MANDATORY: You MUST use ALL '+vocab.length+' of these vocabulary words in the output — every single one, no exceptions: '+vocab.map(w=>'"'+w+'"').join(', ')+'. Bold each with <strong>word</strong> HTML tags when it appears. Do not omit any word from this list.'
+    : '';
   const cs=EX.selectedComp.sample?' (e.g. "'+EX.selectedComp.sample+'")':'';
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
-  const prompt='Write a single paragraph (80-130 words) for theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\n\n'+(vi?vi+'\n\n':'')+'Both must be present. No title. Output ONLY the paragraph.';
+  const prompt='Write a single paragraph ('+minWords+'-'+maxWords+' words) for theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\n\n'+(vi?vi+'\n\n':'')+'Both composition and rhythm must be present. No title. Output ONLY the paragraph.';
+  const explorerTokens = Math.max(400, vocab.length * 80 + 300);
   try{
-    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:explorerTokens,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();let out=data.content.map(b=>b.text||'').join('').trim();
     out=out.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
