@@ -2106,7 +2106,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function getVocabWords() {
   const raw = document.getElementById('vocab-input').value;
-  return raw.split(/[\n,]+/).map(w => w.trim()).filter(Boolean);
+  return raw.split(/[\n,\s]+/).map(w => w.trim()).filter(Boolean);
 }
 
 function renderVocabChips() {
