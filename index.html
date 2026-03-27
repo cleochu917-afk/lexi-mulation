@@ -6246,10 +6246,36 @@ async function explorerGenerate(){
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
   const prompt='Write a single paragraph ('+minWords+'-'+maxWords+' words) for theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\n\n'+(vi?vi+'\n\n':'')+'Both composition and rhythm must be present. No title. Output ONLY the paragraph.';
   const explorerTokens = Math.max(400, vocab.length * 80 + 300);
+  // Helper: strip HTML tags to check plain text for vocab words
+  function stripHtml(h){return h.replace(/<[^>]+>/g,'');}
+  function checkVocab(text,words){
+    const plain=stripHtml(text).toLowerCase();
+    return words.filter(w=>!plain.includes(w.toLowerCase()));
+  }
+  async function callGenerate(promptText,tokens){
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:tokens,messages:[{role:'user',content:promptText}]})});
+    const d=await r.json();
+    let t=d.content.map(b=>b.text||'').join('').trim();
+    return t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+  }
   try{
-    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:explorerTokens,messages:[{role:'user',content:prompt}]})});
-    const data=await resp.json();let out=data.content.map(b=>b.text||'').join('').trim();
-    out=out.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');EX.output=out;
+    let out=await callGenerate(prompt,explorerTokens);
+    // Verify all vocab words appear — retry up to 2 times if any missing
+    if(vocab.length>0){
+      let missing=checkVocab(out,vocab);
+      if(missing.length>0){
+        // Retry with explicit list of missing words
+        const retryPrompt=prompt+'\n\nCRITICAL: The following words were missing from your last attempt and MUST appear in this version: '+missing.map(w=>'"'+w+'"').join(', ')+'. Every single word listed must be present in your output.';
+        out=await callGenerate(retryPrompt,explorerTokens);
+        missing=checkVocab(out,vocab);
+        if(missing.length>0){
+          // Second retry — ask for each word in a sentence
+          const retry2Prompt='Write a paragraph ('+minWords+'-'+maxWords+' words) about "'+EX.theme+'" using COMPOSITION: '+EX.selectedComp.name+' and RHYTHM: '+EX.selectedRhythm.name+'. You MUST include ALL of these words, every one: '+vocab.map(w=>'<strong>'+w+'</strong>').join(', ')+'. Bold each vocabulary word with <strong>word</strong> tags. Do not omit a single word from that list. Output ONLY the paragraph.';
+          out=await callGenerate(retry2Prompt,explorerTokens);
+        }
+      }
+    }
+    EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
     if(ov&&lbl&&tel){
       lbl.innerHTML='<span style="color:rgba(255,45,155,.8)">✦</span> <span style="color:rgba(255,220,255,.95)">'+escHtml(EX.selectedComp.name)+'</span> <span style="color:rgba(0,255,136,.7)">⧉</span> <span style="color:rgba(200,255,220,.95)">'+escHtml(EX.selectedRhythm.name)+'</span> <span style="color:rgba(0,200,255,.6)">✦</span>';
