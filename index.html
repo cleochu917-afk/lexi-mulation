@@ -6239,93 +6239,23 @@ async function explorerGenerate(){
   const vocab=vRaw?vRaw.split(/[,\s]+/).map(w=>w.trim()).filter(Boolean):[];
   const cs=EX.selectedComp.sample?' (e.g. "'+EX.selectedComp.sample+'")':'';
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
-
-  async function callAPI(promptText, tokens){
-    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:tokens,
-        messages:[{role:'user',content:promptText}]})});
-    const d=await r.json();
-    let t=d.content.map(b=>b.text||'').join('').trim();
-    return t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
-  }
-
-  function boldVocab(text,words){
-    let result=text;
-    words.forEach(w=>{
-      const esc=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      const rx=new RegExp('(?<![\w>])'+esc+'(?![\w<])','gi');
-      result=result.replace(rx,m=>'<strong>'+m+'</strong>');
-    });
-    return result;
-  }
-
-  function stripH(h){return h.replace(/<[^>]+>/g,'');}
-
-  function getMissing(text,words){
-    const plain=stripH(text).toLowerCase();
-    return words.filter(w=>!plain.includes(w.toLowerCase()));
-  }
-
+  const wordCount=Math.max(150, vocab.length*35);
+  const maxTok=Math.max(800, vocab.length*120+400);
+  const vocabLine=vocab.length
+    ? 'REQUIRED WORDS — you MUST use every single one of these '+vocab.length+' words verbatim in the paragraph:\n'+vocab.map((w,i)=>(i+1)+'. '+w).join('\n')+'\n\nBold each required word with <strong>word</strong> tags when it appears. All '+vocab.length+' must appear. Do not drop any.'
+    : '';
+  const prompt='Write a literary paragraph of about '+wordCount+' words for the theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+(vocabLine?'\n\n'+vocabLine:'')+'\n\nNo title. Output ONLY the paragraph.';
   try{
-    let out;
-    if(vocab.length===0){
-      const p='Write a single paragraph (90-130 words) for theme: "'+EX.theme+'"\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\nNo title. Output ONLY the paragraph.';
-      const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,messages:[{role:'user',content:p}]})});
-      const d=await r.json();
-      out=d.content.map(b=>b.text||'').join('').trim().replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
-    } else {
-      // Single API call with numbered sentence structure.
-      // Model is instructed to write N sentences, one per line,
-      // each line numbered and containing its assigned word.
-      // JS then strips the numbers and joins into a paragraph.
-      const wordList = vocab.map((w,i)=>(i+1)+'. Sentence '+(i+1)+' MUST contain the word "'+w+'" — bold it as <strong>'+w+'</strong>.').join('\n');
-      const totalWords = vocab.length;
-      const maxTok = Math.max(600, totalWords * 80 + 200);
-      const p =
-        'You are writing a literary paragraph in '+totalWords+' numbered sentences.\n'+
-        'Theme: "'+EX.theme+'".\n'+
-        'COMPOSITION style: '+EX.selectedComp.name+cs+'.\n'+
-        'RHYTHM: '+EX.selectedRhythm.name+rs+'.\n\n'+
-        'WORD ASSIGNMENTS — each sentence has exactly one assigned word that MUST appear verbatim:\n'+
-        wordList+'\n\n'+
-        'OUTPUT FORMAT: Write exactly '+totalWords+' lines. Each line starts with its number and a period.\n'+
-        'Example format:\n'+
-        '1. [sentence containing assigned word for #1]\n'+
-        '2. [sentence containing assigned word for #2]\n\n'+
-        'RULES:\n'+
-        '- Every assigned word MUST appear verbatim in its sentence.\n'+
-        '- Bold every assigned word with <strong>word</strong> tags.\n'+
-        '- Sentences must fit the composition style and rhythm above.\n'+
-        '- Sentences must connect as flowing prose about the theme.\n'+
-        '- Output ONLY the '+totalWords+' numbered lines. Nothing else.';
-
-      const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTok,
-          messages:[{role:'user',content:p}]})});
-      const d=await r.json();
-      let raw=d.content.map(b=>b.text||'').join('').trim();
-      raw=raw.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
-
-      // Strip leading numbers ("1. ", "2. " etc) and join into paragraph
-      const sentenceLines = raw.split('\n')
-        .map(l=>l.replace(/^\d+\.\s*/,'').trim())
-        .filter(l=>l.length>10);
-
-      // Safety: ensure every vocab word appears, force-bold if missed
-      let joined = sentenceLines.join(' ');
-      vocab.forEach(word=>{
-        const plain=joined.replace(/<[^>]+>/g,'').toLowerCase();
-        if(!plain.includes(word.toLowerCase())){
-          // Word missing — append a short clause at the end
-          joined=joined.replace(/[.!?]\s*$/,'')+', the <strong>'+word+'</strong> of the moment unacknowledged.';
-        } else if(!joined.includes('<strong>'+word+'</strong>')){
-          // Present but not bolded — bold it
-          const rx=new RegExp('(?<![\w>])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\w<])','gi');
-          joined=joined.replace(rx,'<strong>$&</strong>');
-        }
-      });
-      out = joined;
-    }
+    const resp=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTok,messages:[{role:'user',content:prompt}]})});
+    const data=await resp.json();let out=data.content.map(b=>b.text||'').join('').trim();
+    out=out.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+    // Bold any vocab word not yet wrapped
+    vocab.forEach(w=>{
+      const li=out.toLowerCase().indexOf(w.toLowerCase());
+      if(li>=0&&!out.toLowerCase().includes('<strong>'+w.toLowerCase())){
+        out=out.slice(0,li)+'<strong>'+out.slice(li,li+w.length)+'</strong>'+out.slice(li+w.length);
+      }
+    });
     EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
     if(ov&&lbl&&tel){
