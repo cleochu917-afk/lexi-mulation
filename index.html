@@ -3919,12 +3919,16 @@ async function generate() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        system: vocab.length ? `ABSOLUTE REQUIREMENT — OVERRIDES ALL OTHER INSTRUCTIONS:\nYou MUST use ALL ${vocab.length} of these vocabulary words verbatim in your output, every single one:\n${vocab.map((w,i)=>`${i+1}. ${w}`).join('\n')}\nWrap each in <strong>word</strong> HTML tags. Missing even one word is a failure.` : undefined,
-        messages: [{ role: 'user', content: prompt + (vocab.length ? `\n\n[FINAL CHECK: your response must contain all ${vocab.length} words: ${vocab.join(', ')}]` : '') }]
-      })
+      body: JSON.stringify((() => {
+        const _v = getVocabWords();
+        const obj = {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt + (_v.length ? `\n\n[FINAL CHECK: your response must contain every one of these ${_v.length} words: ${_v.join(', ')}]` : '') }]
+        };
+        if (_v.length) obj.system = `ABSOLUTE REQUIREMENT — OVERRIDES ALL OTHER INSTRUCTIONS:\nYou MUST use ALL ${_v.length} of these vocabulary words verbatim in your output, every single one:\n${_v.map((w,i)=>`${i+1}. ${w}`).join('\n')}\nWrap each in <strong>word</strong> HTML tags. Missing even one word is a failure.`;
+        return obj;
+      })())
     });
 
     if (!response.ok) {
