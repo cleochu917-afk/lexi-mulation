@@ -6236,7 +6236,7 @@ async function explorerGenerate(){
   const btn=document.getElementById('explorer-gen-btn');if(btn)btn.classList.add('loading');
   const sb=document.getElementById('tx-save-btn');if(sb){sb.textContent='☆ Save to Dictionary';sb.classList.remove('saved');}
   const vRaw=(document.getElementById('explorer-vocab').value||'').trim();
-  const vocab=vRaw?vRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
+  const vocab=vRaw?vRaw.split(/[,\s]+/).map(w=>w.trim()).filter(Boolean):[];
   const cs=EX.selectedComp.sample?' (e.g. "'+EX.selectedComp.sample+'")':'';
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
 
@@ -6274,44 +6274,57 @@ async function explorerGenerate(){
       const d=await r.json();
       out=d.content.map(b=>b.text||'').join('').trim().replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
     } else {
-      // One API call per vocab word — each sentence is generated independently
-      // This is the only method that guarantees every word appears verbatim
-      const sentencePromises = vocab.map((word, i) => {
-        const isFirst = i === 0;
-        const isLast = i === vocab.length - 1;
-        const position = isFirst ? 'opening' : isLast ? 'closing' : 'middle';
-        const p =
-          'Write exactly ONE sentence (20-35 words) for a '+position+' sentence in a literary paragraph.\n'+
-          'Theme: "'+EX.theme+'".\n'+
-          'COMPOSITION: '+EX.selectedComp.name+'.\n'+
-          'RHYTHM: '+EX.selectedRhythm.name+'.\n'+
-          'The sentence MUST contain the word "'+word+'" verbatim.\n'+
-          'Bold it: <strong>'+word+'</strong>.\n'+
-          'Output ONLY the single sentence. Nothing else.';
-        return fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,
-            messages:[{role:'user',content:p}]})})
-          .then(r=>r.json())
-          .then(d=>{
-            let t=d.content.map(b=>b.text||'').join('').trim();
-            t=t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
-            // Guarantee: if word not present, force-wrap it
-            const plain=t.replace(/<[^>]+>/g,'').toLowerCase();
-            if(!plain.includes(word.toLowerCase())){
-              // Word missing from sentence — append it
-              t=t.replace(/[.!?]\s*$/,'')+(', '+word+'.').replace(word,'<strong>'+word+'</strong>');
-            }
-            // Ensure word is bolded
-            if(!t.includes('<strong>'+word+'</strong>') && !t.includes('<strong>'+word.toLowerCase()+'</strong>')){
-              const rx=new RegExp('(?<![\w>])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\w<])','gi');
-              t=t.replace(rx,'<strong>$&</strong>');
-            }
-            return t;
-          });
+      // Single API call with numbered sentence structure.
+      // Model is instructed to write N sentences, one per line,
+      // each line numbered and containing its assigned word.
+      // JS then strips the numbers and joins into a paragraph.
+      const wordList = vocab.map((w,i)=>(i+1)+'. Sentence '+(i+1)+' MUST contain the word "'+w+'" — bold it as <strong>'+w+'</strong>.').join('\n');
+      const totalWords = vocab.length;
+      const maxTok = Math.max(600, totalWords * 80 + 200);
+      const p =
+        'You are writing a literary paragraph in '+totalWords+' numbered sentences.\n'+
+        'Theme: "'+EX.theme+'".\n'+
+        'COMPOSITION style: '+EX.selectedComp.name+cs+'.\n'+
+        'RHYTHM: '+EX.selectedRhythm.name+rs+'.\n\n'+
+        'WORD ASSIGNMENTS — each sentence has exactly one assigned word that MUST appear verbatim:\n'+
+        wordList+'\n\n'+
+        'OUTPUT FORMAT: Write exactly '+totalWords+' lines. Each line starts with its number and a period.\n'+
+        'Example format:\n'+
+        '1. [sentence containing assigned word for #1]\n'+
+        '2. [sentence containing assigned word for #2]\n\n'+
+        'RULES:\n'+
+        '- Every assigned word MUST appear verbatim in its sentence.\n'+
+        '- Bold every assigned word with <strong>word</strong> tags.\n'+
+        '- Sentences must fit the composition style and rhythm above.\n'+
+        '- Sentences must connect as flowing prose about the theme.\n'+
+        '- Output ONLY the '+totalWords+' numbered lines. Nothing else.';
+
+      const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTok,
+          messages:[{role:'user',content:p}]})});
+      const d=await r.json();
+      let raw=d.content.map(b=>b.text||'').join('').trim();
+      raw=raw.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+
+      // Strip leading numbers ("1. ", "2. " etc) and join into paragraph
+      const sentenceLines = raw.split('\n')
+        .map(l=>l.replace(/^\d+\.\s*/,'').trim())
+        .filter(l=>l.length>10);
+
+      // Safety: ensure every vocab word appears, force-bold if missed
+      let joined = sentenceLines.join(' ');
+      vocab.forEach(word=>{
+        const plain=joined.replace(/<[^>]+>/g,'').toLowerCase();
+        if(!plain.includes(word.toLowerCase())){
+          // Word missing — append a short clause at the end
+          joined=joined.replace(/[.!?]\s*$/,'')+', the <strong>'+word+'</strong> of the moment unacknowledged.';
+        } else if(!joined.includes('<strong>'+word+'</strong>')){
+          // Present but not bolded — bold it
+          const rx=new RegExp('(?<![\w>])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\w<])','gi');
+          joined=joined.replace(rx,'<strong>$&</strong>');
+        }
       });
-      // Run all sentence generations in parallel
-      const sentences = await Promise.all(sentencePromises);
-      out = sentences.join(' ');
+      out = joined;
     }
     EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
