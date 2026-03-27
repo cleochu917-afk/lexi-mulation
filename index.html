@@ -6270,37 +6270,48 @@ async function explorerGenerate(){
     let out;
     if(vocab.length===0){
       const p='Write a single paragraph (90-130 words) for theme: "'+EX.theme+'"\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\nNo title. Output ONLY the paragraph.';
-      out=await callAPI(p,500);
+      const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,messages:[{role:'user',content:p}]})});
+      const d=await r.json();
+      out=d.content.map(b=>b.text||'').join('').trim().replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
     } else {
-      // PASS 1: one sentence per word — each sentence must contain its assigned word
-      const p1=
-        'Theme: "'+EX.theme+'". Style — COMPOSITION: '+EX.selectedComp.name+'. RHYTHM: '+EX.selectedRhythm.name+'.\n\n'+
-        'Write exactly '+vocab.length+' sentences as a paragraph. Assign one vocabulary word per sentence in this order:\n'+
-        vocab.map((w,i)=>'Sentence '+(i+1)+': must contain the word "'+w+'"').join('\n')+
-        '\n\nEach sentence must contain its assigned word. Sentences must flow together about the theme. No numbering. Output ONLY the paragraph.';
-      let draft=await callAPI(p1, vocab.length*120+300);
-
-      // PASS 2: refine into polished prose while keeping all words
-      const p2=
-        'Refine this draft into polished literary prose with COMPOSITION: '+EX.selectedComp.name+' and RHYTHM: '+EX.selectedRhythm.name+':\n\n'+
-        stripH(draft)+'\n\n'+
-        'RULES: Every one of these words MUST stay in the final text: '+vocab.map(w=>'"'+w+'"').join(', ')+
-        '. Bold each with <strong>word</strong> tags. Improve flow and style. Output ONLY the paragraph.';
-      out=await callAPI(p2, vocab.length*150+400);
-
-      // Safety: if any word still missing, force-insert
-      const missing=getMissing(out,vocab);
-      if(missing.length>0){
-        const p3=
-          'Edit this paragraph to include these missing words: '+missing.map(w=>'"'+w+'"').join(', ')+
-          '\n\nParagraph:\n'+stripH(out)+
-          '\n\nInsert each missing word naturally. All of these must appear: '+vocab.map(w=>'"'+w+'"').join(', ')+
-          '. Bold vocabulary words with <strong>word</strong> tags. Output ONLY the paragraph.';
-        out=await callAPI(p3, vocab.length*150+400);
-      }
-
-      // Ensure all vocab words are bolded
-      out=boldVocab(out,vocab);
+      // One API call per vocab word — each sentence is generated independently
+      // This is the only method that guarantees every word appears verbatim
+      const sentencePromises = vocab.map((word, i) => {
+        const isFirst = i === 0;
+        const isLast = i === vocab.length - 1;
+        const position = isFirst ? 'opening' : isLast ? 'closing' : 'middle';
+        const p =
+          'Write exactly ONE sentence (20-35 words) for a '+position+' sentence in a literary paragraph.\n'+
+          'Theme: "'+EX.theme+'".\n'+
+          'COMPOSITION: '+EX.selectedComp.name+'.\n'+
+          'RHYTHM: '+EX.selectedRhythm.name+'.\n'+
+          'The sentence MUST contain the word "'+word+'" verbatim.\n'+
+          'Bold it: <strong>'+word+'</strong>.\n'+
+          'Output ONLY the single sentence. Nothing else.';
+        return fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,
+            messages:[{role:'user',content:p}]})})
+          .then(r=>r.json())
+          .then(d=>{
+            let t=d.content.map(b=>b.text||'').join('').trim();
+            t=t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+            // Guarantee: if word not present, force-wrap it
+            const plain=t.replace(/<[^>]+>/g,'').toLowerCase();
+            if(!plain.includes(word.toLowerCase())){
+              // Word missing from sentence — append it
+              t=t.replace(/[.!?]\s*$/,'')+(', '+word+'.').replace(word,'<strong>'+word+'</strong>');
+            }
+            // Ensure word is bolded
+            if(!t.includes('<strong>'+word+'</strong>') && !t.includes('<strong>'+word.toLowerCase()+'</strong>')){
+              const rx=new RegExp('(?<![\w>])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\w<])','gi');
+              t=t.replace(rx,'<strong>$&</strong>');
+            }
+            return t;
+          });
+      });
+      // Run all sentence generations in parallel
+      const sentences = await Promise.all(sentencePromises);
+      out = sentences.join(' ');
     }
     EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
