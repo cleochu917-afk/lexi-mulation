@@ -6237,43 +6237,70 @@ async function explorerGenerate(){
   const sb=document.getElementById('tx-save-btn');if(sb){sb.textContent='☆ Save to Dictionary';sb.classList.remove('saved');}
   const vRaw=(document.getElementById('explorer-vocab').value||'').trim();
   const vocab=vRaw?vRaw.split(',').map(w=>w.trim()).filter(Boolean):[];
-  const minWords = vocab.length > 0 ? Math.max(120, 80 + vocab.length * 25) : 100;
-  const maxWords = minWords + 60;
-  const vi=vocab.length
-    ? 'MANDATORY: You MUST use ALL '+vocab.length+' of these vocabulary words in the output — every single one, no exceptions: '+vocab.map(w=>'"'+w+'"').join(', ')+'. Bold each with <strong>word</strong> HTML tags when it appears. Do not omit any word from this list.'
-    : '';
   const cs=EX.selectedComp.sample?' (e.g. "'+EX.selectedComp.sample+'")':'';
   const rs=EX.selectedRhythm.sample?' (e.g. "'+EX.selectedRhythm.sample+'")':'';
-  const prompt='Write a single paragraph ('+minWords+'-'+maxWords+' words) for theme: "'+EX.theme+'"\n\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\n\n'+(vi?vi+'\n\n':'')+'Both composition and rhythm must be present. No title. Output ONLY the paragraph.';
-  const explorerTokens = Math.max(400, vocab.length * 80 + 300);
-  // Helper: strip HTML tags to check plain text for vocab words
-  function stripHtml(h){return h.replace(/<[^>]+>/g,'');}
-  function checkVocab(text,words){
-    const plain=stripHtml(text).toLowerCase();
-    return words.filter(w=>!plain.includes(w.toLowerCase()));
-  }
-  async function callGenerate(promptText,tokens){
-    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:tokens,messages:[{role:'user',content:promptText}]})});
+
+  async function callAPI(promptText, tokens){
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:tokens,
+        messages:[{role:'user',content:promptText}]})});
     const d=await r.json();
     let t=d.content.map(b=>b.text||'').join('').trim();
     return t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
   }
+
+  function boldVocab(text,words){
+    let result=text;
+    words.forEach(w=>{
+      const esc=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      const rx=new RegExp('(?<![\w>])'+esc+'(?![\w<])','gi');
+      result=result.replace(rx,m=>'<strong>'+m+'</strong>');
+    });
+    return result;
+  }
+
+  function stripH(h){return h.replace(/<[^>]+>/g,'');}
+
+  function getMissing(text,words){
+    const plain=stripH(text).toLowerCase();
+    return words.filter(w=>!plain.includes(w.toLowerCase()));
+  }
+
   try{
-    let out=await callGenerate(prompt,explorerTokens);
-    // Verify all vocab words appear — retry up to 2 times if any missing
-    if(vocab.length>0){
-      let missing=checkVocab(out,vocab);
+    let out;
+    if(vocab.length===0){
+      const p='Write a single paragraph (90-130 words) for theme: "'+EX.theme+'"\nCOMPOSITION: '+EX.selectedComp.name+cs+'\nRHYTHM: '+EX.selectedRhythm.name+rs+'\nNo title. Output ONLY the paragraph.';
+      out=await callAPI(p,500);
+    } else {
+      // PASS 1: one sentence per word — each sentence must contain its assigned word
+      const p1=
+        'Theme: "'+EX.theme+'". Style — COMPOSITION: '+EX.selectedComp.name+'. RHYTHM: '+EX.selectedRhythm.name+'.\n\n'+
+        'Write exactly '+vocab.length+' sentences as a paragraph. Assign one vocabulary word per sentence in this order:\n'+
+        vocab.map((w,i)=>'Sentence '+(i+1)+': must contain the word "'+w+'"').join('\n')+
+        '\n\nEach sentence must contain its assigned word. Sentences must flow together about the theme. No numbering. Output ONLY the paragraph.';
+      let draft=await callAPI(p1, vocab.length*120+300);
+
+      // PASS 2: refine into polished prose while keeping all words
+      const p2=
+        'Refine this draft into polished literary prose with COMPOSITION: '+EX.selectedComp.name+' and RHYTHM: '+EX.selectedRhythm.name+':\n\n'+
+        stripH(draft)+'\n\n'+
+        'RULES: Every one of these words MUST stay in the final text: '+vocab.map(w=>'"'+w+'"').join(', ')+
+        '. Bold each with <strong>word</strong> tags. Improve flow and style. Output ONLY the paragraph.';
+      out=await callAPI(p2, vocab.length*150+400);
+
+      // Safety: if any word still missing, force-insert
+      const missing=getMissing(out,vocab);
       if(missing.length>0){
-        // Retry with explicit list of missing words
-        const retryPrompt=prompt+'\n\nCRITICAL: The following words were missing from your last attempt and MUST appear in this version: '+missing.map(w=>'"'+w+'"').join(', ')+'. Every single word listed must be present in your output.';
-        out=await callGenerate(retryPrompt,explorerTokens);
-        missing=checkVocab(out,vocab);
-        if(missing.length>0){
-          // Second retry — ask for each word in a sentence
-          const retry2Prompt='Write a paragraph ('+minWords+'-'+maxWords+' words) about "'+EX.theme+'" using COMPOSITION: '+EX.selectedComp.name+' and RHYTHM: '+EX.selectedRhythm.name+'. You MUST include ALL of these words, every one: '+vocab.map(w=>'<strong>'+w+'</strong>').join(', ')+'. Bold each vocabulary word with <strong>word</strong> tags. Do not omit a single word from that list. Output ONLY the paragraph.';
-          out=await callGenerate(retry2Prompt,explorerTokens);
-        }
+        const p3=
+          'Edit this paragraph to include these missing words: '+missing.map(w=>'"'+w+'"').join(', ')+
+          '\n\nParagraph:\n'+stripH(out)+
+          '\n\nInsert each missing word naturally. All of these must appear: '+vocab.map(w=>'"'+w+'"').join(', ')+
+          '. Bold vocabulary words with <strong>word</strong> tags. Output ONLY the paragraph.';
+        out=await callAPI(p3, vocab.length*150+400);
       }
+
+      // Ensure all vocab words are bolded
+      out=boldVocab(out,vocab);
     }
     EX.output=out;
     const ov=document.getElementById('explorer-output-overlay'),lbl=document.getElementById('explorer-output-label'),tel=document.getElementById('explorer-out-text');
