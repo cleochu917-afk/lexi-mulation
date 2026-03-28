@@ -3012,35 +3012,71 @@ that the story has been telling us its ending from the beginning.
 CRAFT STANDARD: ${style.toUpperCase()}-REGISTER PROSE
 
 STEP 1 — EXTRACT THIS AUTHOR'S VOICE DNA (silently, before writing):
-  SYNTAX: What sentence shapes does this author favor?
-    → Long periodic / short clipped / stream-associative / anaphoric list / parenthetical-heavy
+
+  SYNTAX — extract the SENTENCE LENGTH PATTERN, not just the type:
+    → What is the ratio of long to short sentences in this author's prose?
+    → Does this author use SHORT SENTENCES as punches — placed at emotional peaks, after buildup?
+      (e.g. Hemingway, Flynn, Carver: long setup → short brutal landing)
+    → Or does this author sustain length throughout?
+      (e.g. Woolf, James, Proust: length is continuous, not rhythmically broken)
+    → What is the SHORTEST sentence type this author uses, and WHEN do they deploy it?
+    ENFORCEMENT: Replicate the exact long/short alternation pattern. If the author punches with
+    short sentences, your most important lines — the emotional peak, the revelation, the verdict —
+    must be SHORT. 5 words or fewer at those moments. Not complex. Not elegant. Blunt.
+
+  DICTION REGISTER TIER — extract the exact position on the formality spectrum:
+    → Place this author on a scale: 1 (street vernacular) to 10 (Latinate elevation)
+    → Austen/James = 9. Hemingway = 4. Flynn/Eugenides = 3-4. Woolf = 7. Carver = 3.
+    → Identify 5 words this author would NEVER use because they are too elevated or too low.
+    → Identify 5 words that are SIGNATURE to this author's register.
+    ENFORCEMENT: If your draft contains a word above this author's register ceiling, replace it.
+    Elevated diction is the single most common failure mode. The model defaults to literary
+    elevation regardless of the author. Override this default explicitly.
+    A word that appears in Victorian fiction is WRONG for a contemporary author. Replace it.
+
   NARRATOR: What is this narrator's personality and distance?
-    → Wry-omniscient / invisible-behaviorist / lyrical-intimate / intrusive-moral / deadpan
+    → Wry-omniscient / invisible-behaviorist / lyrical-intimate / intrusive-moral / deadpan /
+       self-implicating (narrator acknowledges her own bad motives) / unreliable-confessional
+    → Does this narrator state ugly truths directly, or displace them?
+
   EMOTIONAL LOGIC: How does this author express feeling?
-    → Through social behavior / through sensation/memory / through action only / through declaration / through displacement
-  METAPHOR: What is this author's figurative register?
-    → Domestic/social / elemental/natural / minimal-none / symbolic-motif / cinematic (avoid unless author uses it)
-  DICTION: What vocabulary register and era does this author use?
-    → Period-appropriate / colloquial / elevated / technical / spare
+    → Through social behavior / through sensation/memory / through action only /
+       through direct declaration of dark feeling / through displacement into metaphor
+    → Does this author NAME the ugly emotion plainly, or route around it?
+    ENFORCEMENT: Do not substitute your default emotional mode for the author's.
+    If the author states feeling directly ("I wanted to ruin it") — state it directly.
+    If the author routes through behavior — route through behavior. Never mix modes.
+
+  METAPHOR REGISTER: What is this author's figurative register?
+    → Domestic/social / elemental/natural / minimal-none / symbolic-motif /
+       body-visceral / clinical-cold / cinematic (avoid unless author uses it)
+    → Does this author use metaphor at all, or does plain statement do the work?
 
 STEP 2 — WRITE THREE INTERNAL TEST SENTENCES (silent, do not output):
   Sentence 1: Setting described through this author's sensory and social lens
-  Sentence 2: A character's emotional state rendered through this author's emotional mode
-  Sentence 3: A line of dialogue in this author's register
+  Sentence 2: A character's emotional state rendered through this author's emotional mode —
+    check: is the diction at the RIGHT register tier? Is it too elevated?
+  Sentence 3: The emotional peak of the passage — check: is this the SHORTEST sentence
+    in the passage if this author punches short? If yes, cut it to its minimum.
   Ask of each: could this sentence appear in a work by ${style}?
-  If NO → identify which element is wrong (syntax / narrator stance / emotional logic / metaphor / diction) and rebuild.
+  If NO → identify which element is wrong and name it specifically:
+    too elevated? wrong sentence length at wrong moment? wrong emotional mode? rebuild.
   Only proceed when all three pass.
 
 STEP 3 — GENERATE at the quality demonstrated by ${style}'s best work.
   The voice, diction, worldview, and emotional logic established in the first sentence
   must govern every sentence through to the final word.
-  No drift toward modern literary defaults at emotional peaks.
-  No smooth contemporary rhythm in period or restrained styles.
-  No psychological directness in authors who route emotion through behavior or sensation.
+  SPECIFIC ENFORCEMENT DURING GENERATION:
+  → At every emotional peak: is the sentence the right length for this author?
+     If this author punches short — shorten it. Remove qualifications. Remove elegance.
+  → At every adjective or elevated word: is this word in this author's register?
+     If it sounds more literary than this author writes — replace it with their actual diction.
+  → No drift toward generic literary elevation. Elevation is the default failure. Resist it.
 
 CLOSING LINE: End in this author's specific register.
-  Ask: does the final sentence sound like ${style} wrote it, or like a modern novelist ended it?
-  If the latter: rebuild using the emotional mode and syntax type identified in Step 1.
+  Ask: does the final sentence sound like ${style} wrote it, or like a generic literary novelist ended it?
+  If the latter — is it too long? too elevated? too resolved? too psychological?
+  Rebuild using the sentence length pattern and diction tier identified in Step 1.
 `;
         return ''; // No style specified — generic DNA rules apply
       })();
