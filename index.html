@@ -3343,13 +3343,10 @@ UNIVERSAL FIVE-LEAK-POINT CHECK (silent, every sentence):
 
 TARGET LENGTH: ${lengthSpec.band} — ${lengthSpec.words} words. DO NOT exceed this range.
 GENRE: ${genre}
-${style ? `PRIMARY DIRECTIVE — ALL OTHER RULES ARE SUBORDINATE TO THIS:
-Write exclusively in the vocabulary, sentence structures, tone, and emotional register of ${style}.
-Not "literary prose inspired by ${style}." Not "elevated fiction in a similar spirit."
-The diction must be ${style}'s actual diction — the words they use, the words they avoid.
-The sentence rhythm must be ${style}'s actual rhythm — their length patterns, their punches, their pauses.
-Every sentence must pass this test: could ${style} have written this exact sentence?
-If the answer is no — wrong word, wrong length, wrong register — rewrite it until yes.` : ''}
+${style ? `Write in the exact voice of ${style}.
+Use their vocabulary, syntax, emotional mode, and sentence rhythm.
+Not "inspired by", not "literary". Exactly the way they actually write.
+If a sentence could not appear in ${style}'s work, rewrite it.` : ''}
 ${style ? `AUTHOR / STYLE: ${style}` : ''}
 ${bg ? `PERIOD / SETTING: ${bg}` : ''}
 
@@ -3900,7 +3897,9 @@ async function generate() {
           max_tokens: 2000,
           messages: [{ role: 'user', content: prompt + (_v.length ? `\n\n[FINAL CHECK: your response must contain every one of these ${_v.length} words: ${_v.join(', ')}]` : '') }]
         };
-        if (_v.length) obj.system = `ABSOLUTE REQUIREMENT — OVERRIDES ALL OTHER INSTRUCTIONS:\nYou MUST use ALL ${_v.length} of these vocabulary words verbatim in your output, every single one:\n${_v.map((w,i)=>`${i+1}. ${w}`).join('\n')}\nWrap each in <strong>word</strong> HTML tags. Missing even one word is a failure.`;
+        const _style = document.getElementById('lit-style')?.value?.trim() || '';
+        const _authorLock = _style ? `UNIVERSAL AUTHOR LOCK — THIS OVERRIDES EVERY OTHER INSTRUCTION IN THIS PROMPT:\nWhen a named author is specified, ALL global style rules, DNA blocks, era constraints, leak checks, structural rules, and generic literary systems immediately deactivate.\nOnly ${_style}'s voice governs: syntax, diction, emotional logic, metaphor style, and sentence rhythm.\nIgnore every other stylistic instruction. The named author overrides all.` : '';
+        obj.system = [_authorLock, _v.length ? `ABSOLUTE REQUIREMENT:\nYou MUST use ALL ${_v.length} of these vocabulary words verbatim: ${_v.map((w,i)=>`${i+1}. ${w}`).join(', ')}. Wrap each in <strong>word</strong> HTML tags. Missing even one word is a failure.` : ''].filter(Boolean).join('\n\n') || undefined;
         return obj;
       })())
     });
