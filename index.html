@@ -3412,6 +3412,13 @@ UNIVERSAL FIVE-LEAK-POINT CHECK (silent, every sentence):
 
 TARGET LENGTH: ${lengthSpec.band} — ${lengthSpec.words} words. DO NOT exceed this range.
 GENRE: ${genre}
+${style ? `PRIMARY DIRECTIVE — ALL OTHER RULES ARE SUBORDINATE TO THIS:
+Write exclusively in the vocabulary, sentence structures, tone, and emotional register of ${style}.
+Not "literary prose inspired by ${style}." Not "elevated fiction in a similar spirit."
+The diction must be ${style}'s actual diction — the words they use, the words they avoid.
+The sentence rhythm must be ${style}'s actual rhythm — their length patterns, their punches, their pauses.
+Every sentence must pass this test: could ${style} have written this exact sentence?
+If the answer is no — wrong word, wrong length, wrong register — rewrite it until yes.` : ''}
 ${style ? `AUTHOR / STYLE: ${style}` : ''}
 ${bg ? `PERIOD / SETTING: ${bg}` : ''}
 
